@@ -2,7 +2,7 @@ class LoadBalancer:
     def __init__(self, metrics_collector, config_loader):
         self.metrics_collector = metrics_collector
         self.config_loader = config_loader
-        self.round_robin_counters = {}  # 모델별 라운드 로빈 카운터
+        self.round_robin_counters = {}
 
     async def select_server(self, model_name: str) -> str:
         servers = self.config_loader.get_servers(model_name)
@@ -23,6 +23,19 @@ class LoadBalancer:
         else:
             raise ValueError(f"Unsupported strategy: {strategy}")
 
+    async def forward_request(self, server_url: str, payload: dict, headers: dict = None):
+        try:
+            # 헤더에서 Authorization 제거 (vLLM 서버인 경우)
+            if not server_url.startswith("https://api.openai.com"):
+                headers = {k: v for k, v in (headers or {}).items() if k.lower() != "authorization"}
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(server_url, json=payload, headers=headers)
+                response.raise_for_status()
+                return response.json()
+        except httpx.RequestError as e:
+            raise RuntimeError(f"Failed to forward request to {server_url}: {e}")
+
     def _round_robin(self, servers, model_name):
         if model_name not in self.round_robin_counters:
             self.round_robin_counters[model_name] = 0
@@ -40,11 +53,13 @@ class LoadBalancer:
         return sorted_servers[0][0]
 
     def _real_time_metrics(self, servers_metrics):
+        if not servers_metrics:
+            return None
         sorted_servers = sorted(
             servers_metrics.items(),
             key=lambda item: item[1].get("num_requests_waiting", float("inf"))
         )
-        return sorted_servers[0][0] if sorted_servers else None
+        return sorted_servers[0][0]
 
     def _random(self, servers):
         if not servers:
