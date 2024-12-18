@@ -31,11 +31,13 @@ class LoadBalancer:
         return servers[index]
 
     def _least_connection(self, servers_metrics):
+        if not servers_metrics:
+            return None
         sorted_servers = sorted(
             servers_metrics.items(),
             key=lambda item: item[1].get("num_requests_running", float("inf"))
         )
-        return sorted_servers[0][0] if sorted_servers else None
+        return sorted_servers[0][0]
 
     def _real_time_metrics(self, servers_metrics):
         sorted_servers = sorted(
@@ -45,5 +47,7 @@ class LoadBalancer:
         return sorted_servers[0][0] if sorted_servers else None
 
     def _random(self, servers):
+        if not servers:
+            return None
         import random
         return random.choice(servers)
