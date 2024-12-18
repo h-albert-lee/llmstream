@@ -22,6 +22,8 @@ async def update_model(model_name: str, servers: list[str] = None, strategy: str
     models = config_loader.get_models()
     if model_name not in models:
         raise HTTPException(status_code=404, detail="Model not found")
+    if not servers and not strategy:
+        raise HTTPException(status_code=400, detail="No updates provided")
     if servers:
         models[model_name]["servers"] = servers
     if strategy:

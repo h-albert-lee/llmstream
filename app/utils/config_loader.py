@@ -6,8 +6,13 @@ class ConfigLoader:
         self.config = self.load_config()
 
     def load_config(self):
-        with open(self.config_path, "r") as f:
-            return json.load(f)
+        try:
+            with open(self.config_path, "r") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            raise RuntimeError(f"Configuration file not found: {self.config_path}")
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Error parsing configuration file: {e}")
 
     def get_model_config(self, model_name: str):
         return self.config.get("models", {}).get(model_name, {})

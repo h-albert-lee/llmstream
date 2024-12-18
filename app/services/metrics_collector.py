@@ -10,11 +10,11 @@ class MetricsCollector:
 
     async def fetch_metrics(self, server_url: str) -> Dict[str, float]:
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"{server_url}/metrics", timeout=5)
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.get(f"{server_url}/metrics")
                 response.raise_for_status()
                 return self.parse_metrics(response.text)
-        except Exception as e:
+        except httpx.RequestError as e:
             print(f"Failed to fetch metrics from {server_url}: {e}")
             return {}
 
