@@ -1,0 +1,13 @@
+[project]
+name = "llmstream"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.6",
+    "httpx>=0.28.1",
+    "prometheus-client>=0.21.1",
+    "pydantic>=2.10.3",
+    "uvicorn>=0.34.0",
+]
