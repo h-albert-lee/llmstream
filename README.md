@@ -13,7 +13,7 @@ LLMStream is a scalable and efficient REST API designed to handle load-balanced 
 - **Admin API**:
   - Manage models and server mappings dynamically via REST endpoints.
 - **Real-Time Metrics Integration**:
-  - Collects metrics from `/metrics` endpoints exposed by vLLM servers for intelligent load balancing.
+  - Collects metrics from `/metrics` endpoints exposed by vLLM servers for intelligent load balancing. "Real-time metrics" Strategy dynamically selects servers using Weighted Round Robin based on real-time metrics such as GPU cache usage and the number of waiting requests. This ensures balanced load distribution and adapts to changing server conditions.
 
 ---
 
