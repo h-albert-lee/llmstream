@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
+
 class CompletionRequest(BaseModel):
     model: str
     prompt: str
@@ -9,6 +10,7 @@ class CompletionRequest(BaseModel):
     top_p: Optional[float] = 1.0
     n: Optional[int] = 1
     stop: Optional[List[str]] = None
+
 
 class ChatCompletionRequest(BaseModel):
     model: str

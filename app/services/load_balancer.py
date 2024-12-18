@@ -23,12 +23,18 @@ class LoadBalancer:
         else:
             raise ValueError(f"Unsupported strategy: {strategy}")
 
-    async def forward_request(self, server_url: str, payload: dict, headers: dict = None):
+    async def forward_request(
+        self, server_url: str, payload: dict, headers: dict = None
+    ):
         try:
             # 헤더에서 Authorization 제거 (vLLM 서버인 경우)
             if not server_url.startswith("https://api.openai.com"):
-                headers = {k: v for k, v in (headers or {}).items() if k.lower() != "authorization"}
-            
+                headers = {
+                    k: v
+                    for k, v in (headers or {}).items()
+                    if k.lower() != "authorization"
+                }
+
             async with httpx.AsyncClient() as client:
                 response = await client.post(server_url, json=payload, headers=headers)
                 response.raise_for_status()
@@ -48,7 +54,7 @@ class LoadBalancer:
             return None
         sorted_servers = sorted(
             servers_metrics.items(),
-            key=lambda item: item[1].get("num_requests_running", float("inf"))
+            key=lambda item: item[1].get("num_requests_running", float("inf")),
         )
         return sorted_servers[0][0]
 
@@ -57,7 +63,7 @@ class LoadBalancer:
             return None
         sorted_servers = sorted(
             servers_metrics.items(),
-            key=lambda item: item[1].get("num_requests_waiting", float("inf"))
+            key=lambda item: item[1].get("num_requests_waiting", float("inf")),
         )
         return sorted_servers[0][0]
 
@@ -65,4 +71,5 @@ class LoadBalancer:
         if not servers:
             return None
         import random
+
         return random.choice(servers)

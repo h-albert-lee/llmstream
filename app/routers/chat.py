@@ -7,6 +7,7 @@ router = APIRouter()
 logger = Logger()
 load_balancer = LoadBalancer(metrics_collector, config_loader)
 
+
 @router.post("/completions")
 async def chat_completions(request: Request, payload: ChatCompletionRequest):
     model_name = payload.model
@@ -14,7 +15,9 @@ async def chat_completions(request: Request, payload: ChatCompletionRequest):
     # 서버 선택
     selected_server = await load_balancer.select_server(model_name)
     if not selected_server:
-        raise HTTPException(status_code=503, detail="No available servers for the model")
+        raise HTTPException(
+            status_code=503, detail="No available servers for the model"
+        )
 
     # 헤더 포함하여 요청 전달
     headers = dict(request.headers)
@@ -26,4 +29,6 @@ async def chat_completions(request: Request, payload: ChatCompletionRequest):
         return response
     except RuntimeError as e:
         logger.log_error(payload, str(e))
-        raise HTTPException(status_code=502, detail=f"Error contacting server: {str(e)}")
+        raise HTTPException(
+            status_code=502, detail=f"Error contacting server: {str(e)}"
+        )
