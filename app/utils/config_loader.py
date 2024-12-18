@@ -1,5 +1,6 @@
 import json
 
+
 class ConfigLoader:
     def __init__(self, config_path: str = "config.json"):
         self.config_path = config_path

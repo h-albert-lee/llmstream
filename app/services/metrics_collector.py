@@ -2,6 +2,7 @@ import httpx
 import asyncio
 from typing import Dict
 
+
 class MetricsCollector:
     def __init__(self, servers: Dict[str, str], update_interval: int = 10):
         self.servers = servers
