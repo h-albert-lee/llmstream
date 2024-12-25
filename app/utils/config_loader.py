@@ -28,3 +28,6 @@ class ConfigLoader:
 
     def get_metrics_update_interval(self):
         return self.config.get("metrics_update_interval", 10)
+
+    def get_default_generate_server(self):
+        return self.config.get("default_generate_server")

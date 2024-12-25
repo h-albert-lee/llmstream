@@ -1,14 +1,16 @@
 {
-    "models": {
-      "gpt-3.5-turbo": {
-        "servers": ["http://node1:8000", "http://node2:8000"],
-        "strategy": "round_robin"
-      },
-      "gpt-4": {
-        "servers": ["http://node3:8000", "http://node4:8000"],
-        "strategy": "real_time_metrics"
-      }
+  "models": {
+    "gpt-3.5-turbo": {
+      "servers": ["http://node1:8000", "http://node2:8000"],
+      "strategy": "real_time_metrics"
     },
-    "metrics_update_interval": 10
-  }
+    "gpt-4": {
+      "servers": ["http://node3:8000", "http://node4:8000"],
+      "strategy": "round_robin"
+    }
+  },
+  "default_generate_server": "http://node1:8000",
+  "metrics_update_interval": 10
+}
+
   

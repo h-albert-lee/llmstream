@@ -5,15 +5,21 @@ class LoadBalancer:
         self.server_weights = {}  # 서버별 가중치 저장
         self.round_robin_counters = {}  # Weighted Round Robin 카운터
 
-    async def select_server(self, model_name: str) -> str:
+    async def select_server(self, model_name: str = None, is_generate: bool = False) -> str:
         """
-        주어진 모델 이름에 따라 서버를 선택합니다.
+        서버 선택 로직
         """
+        if is_generate:
+            # /generate 요청은 기본 서버로 라우팅
+            return self.config_loader.get_default_generate_server()
+
+        if not model_name:
+            raise ValueError("model_name must be provided unless is_generate is True")
+
         servers_metrics = self.metrics_collector.get_metrics(model_name)
         if not servers_metrics:
             return None
 
-        # 모델별 로드 밸런싱 전략 가져오기
         strategy = self.config_loader.get_strategy(model_name)
         if strategy == "real_time_metrics":
             return self._real_time_metrics(servers_metrics, model_name)
