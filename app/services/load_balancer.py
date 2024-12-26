@@ -1,3 +1,9 @@
+import random
+from typing import Dict
+from app.services.metrics_collector import MetricsCollector
+from app.utils.config_loader import ConfigLoader
+import httpx
+
 class LoadBalancer:
     def __init__(self, metrics_collector, config_loader):
         self.metrics_collector = metrics_collector
