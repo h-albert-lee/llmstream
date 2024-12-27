@@ -1,14 +1,19 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from app.services.load_balancer import LoadBalancer
 from app.services.logger import Logger
 
 router = APIRouter()
 logger = Logger()
-load_balancer = LoadBalancer(metrics_collector, config_loader)
 
 @router.post("/generate")
-async def generate(request: Request):
-    # /generate는 기본 서버로 라우팅
+async def generate(
+    request: Request,
+    load_balancer: LoadBalancer = Depends()
+):
+    """
+    Generate API 엔드포인트.
+    - 모든 요청을 기본 서버로 전달.
+    """
     selected_server = await load_balancer.select_server(is_generate=True)
     if not selected_server:
         raise HTTPException(status_code=503, detail="No available server for /generate requests")

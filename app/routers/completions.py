@@ -1,27 +1,36 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from app.models.request import CompletionRequest
 from app.services.load_balancer import LoadBalancer
 from app.services.logger import Logger
 
 router = APIRouter()
 logger = Logger()
-load_balancer = LoadBalancer(metrics_collector, config_loader)
 
-
-@router.post("/completions")
-async def completions(request: Request, payload: CompletionRequest):
+@router.post("/v1/completions")
+async def completions(
+    request: Request,
+    payload: CompletionRequest,
+    load_balancer: LoadBalancer = Depends()
+):
+    """
+    Completions API 엔드포인트.
+    - 요청을 적절한 서버로 라우팅.
+    """
     model_name = payload.model
 
-    # 서버 선택
+    # 모델 이름 검증
+    if not model_name:
+        raise HTTPException(status_code=400, detail="Model name must be specified.")
+
+    # 로드 밸런서를 통해 서버 선택
     selected_server = await load_balancer.select_server(model_name)
     if not selected_server:
-        raise HTTPException(
-            status_code=503, detail="No available servers for the model"
-        )
+        raise HTTPException(status_code=503, detail="No available servers for the model.")
 
-    # 헤더 포함하여 요청 전달
+    # 헤더 및 페이로드 준비
     headers = dict(request.headers)
     try:
+        # 요청 전달
         response = await load_balancer.forward_request(
             f"{selected_server}/v1/completions", payload.dict(), headers
         )
@@ -29,6 +38,4 @@ async def completions(request: Request, payload: CompletionRequest):
         return response
     except RuntimeError as e:
         logger.log_error(payload, str(e))
-        raise HTTPException(
-            status_code=502, detail=f"Error contacting server: {str(e)}"
-        )
+        raise HTTPException(status_code=502, detail=f"Error contacting server: {str(e)}")
