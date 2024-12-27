@@ -1,22 +1,29 @@
 import random
+import json
 from typing import Dict
+from concurrent.futures import ThreadPoolExecutor
+
+import requests
+import asyncio
+
 from app.services.metrics_collector import MetricsCollector
 from app.utils.config_loader import ConfigLoader
-import httpx
 
 class LoadBalancer:
-    def __init__(self, metrics_collector, config_loader):
+    def __init__(self, metrics_collector: MetricsCollector, config_loader: ConfigLoader):
         self.metrics_collector = metrics_collector
         self.config_loader = config_loader
-        self.server_weights = {}  # 서버별 가중치 저장
-        self.round_robin_counters = {}  # Weighted Round Robin 카운터
+        self.server_weights = {}
+        self.round_robin_counters = {}
+
+        # ThreadPoolExecutor 생성 (필요 시 max_workers 조정)
+        self.executor = ThreadPoolExecutor(max_workers=10)
 
     async def select_server(self, model_name: str = None, is_generate: bool = False) -> str:
         """
-        서버 선택 로직
+        서버 선택 로직 (비동기 함수지만, 내부적으로 동기 호출은 없음)
         """
         if is_generate:
-            # /generate 요청은 기본 서버로 라우팅
             return self.config_loader.get_default_generate_server()
 
         if not model_name:
@@ -30,49 +37,68 @@ class LoadBalancer:
         if strategy == "real_time_metrics":
             return self._real_time_metrics(servers_metrics, model_name)
         elif strategy == "round_robin":
-            return self._round_robin(servers_metrics.keys(), model_name)
+            return self._round_robin(list(servers_metrics.keys()), model_name)
         elif strategy == "least_connection":
             return self._least_connection(servers_metrics)
         elif strategy == "random":
-            return self._random(servers_metrics.keys())
+            return self._random(list(servers_metrics.keys()))
         else:
             raise ValueError(f"Unsupported strategy: {strategy}")
 
-    def _real_time_metrics(self, servers_metrics, model_name):
+    async def forward_request(self, url: str, payload: Dict, headers: Dict) -> Dict:
         """
-        Weighted Round Robin을 기반으로 real_time_metrics 방식으로 서버 선택.
+        비동기 메서드로 유지하되, 내부에서 requests (동기)를
+        ThreadPoolExecutor로 감싸서 실행
         """
-        self._update_weights(servers_metrics)
+        # 동기로 실행할 실제 함수 정의
+        def _sync_request(url: str, payload: Dict, headers: Dict) -> Dict:
+            # Content-Length 제거
+            headers.pop("Content-Length", None)
+            # Content-Type JSON
+            headers["Content-Type"] = "application/json"
 
+            # 동기 requests 호출
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            response.raise_for_status()
+            return response.json()
+
+        loop = asyncio.get_running_loop()
+        try:
+            # 스레드 풀에서 _sync_request 실행
+            result = await loop.run_in_executor(
+                self.executor, 
+                _sync_request, 
+                url, 
+                payload, 
+                headers
+            )
+            return result
+        except requests.RequestException as e:
+            raise RuntimeError(f"Request failed to {url}: {e}")
+
+    def _real_time_metrics(self, servers_metrics, model_name):
+        self._update_weights(servers_metrics)
         if model_name not in self.round_robin_counters:
             self.round_robin_counters[model_name] = {server: 0 for server in self.server_weights}
 
         servers = list(self.server_weights.keys())
         weights = list(self.server_weights.values())
 
-        # Weighted Round Robin 선택
-        import random
         selected_index = random.choices(range(len(servers)), weights=weights, k=1)[0]
         selected_server = servers[selected_index]
-
-        # 카운터 업데이트
         self.round_robin_counters[model_name][selected_server] += 1
         return selected_server
 
     def _update_weights(self, servers_metrics):
-        """
-        GPU 사용량과 대기 요청 수를 기반으로 가중치를 계산.
-        """
         weights = {}
         k = 0.7  # GPU 사용량 중요도
         m = 0.3  # 대기 요청 수 중요도
 
         for server, metrics in servers_metrics.items():
-            gpu_cache = metrics.get("gpu_cache_usage", 1.0)  # GPU 사용량
-            num_waiting = metrics.get("num_requests_waiting", 0)  # 대기 요청 수
+            gpu_cache = metrics.get("gpu_cache_usage", 1.0)
+            num_waiting = metrics.get("num_requests_waiting", 0)
             weights[server] = 1 / ((k * gpu_cache) + (m * num_waiting) + 1e-6)
 
-        # 가중치 정규화
         total_weight = sum(weights.values())
         for server in weights:
             weights[server] /= total_weight
@@ -81,9 +107,10 @@ class LoadBalancer:
 
     def _round_robin(self, servers, model_name):
         if model_name not in self.round_robin_counters:
-            self.round_robin_counters[model_name] = {server: 0 for server in servers}
+            self.round_robin_counters[model_name] = 0
+
         index = self.round_robin_counters[model_name] % len(servers)
-        server = list(servers)[index]
+        server = servers[index]
         self.round_robin_counters[model_name] += 1
         return server
 
@@ -99,5 +126,4 @@ class LoadBalancer:
     def _random(self, servers):
         if not servers:
             return None
-        import random
-        return random.choice(list(servers))
+        return random.choice(servers)

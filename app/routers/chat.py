@@ -2,15 +2,16 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from app.models.request import ChatCompletionRequest
 from app.services.load_balancer import LoadBalancer
 from app.services.logger import Logger
+from app.utils.dependencies import get_load_balancer
 
 router = APIRouter()
 logger = Logger()
 
-@router.post("/v1/chat/completions")
+@router.post("/chat/completions")  # 상대 경로
 async def chat_completions(
     request: Request,
     payload: ChatCompletionRequest,
-    load_balancer: LoadBalancer = Depends()
+    load_balancer: LoadBalancer = Depends(get_load_balancer)
 ):
     """
     Chat Completions API 엔드포인트.

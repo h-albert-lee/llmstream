@@ -2,15 +2,16 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from app.models.request import CompletionRequest
 from app.services.load_balancer import LoadBalancer
 from app.services.logger import Logger
+from app.utils.dependencies import get_load_balancer
 
 router = APIRouter()
 logger = Logger()
 
-@router.post("/v1/completions")
+@router.post("/completions")  # 상대 경로로 설정
 async def completions(
     request: Request,
     payload: CompletionRequest,
-    load_balancer: LoadBalancer = Depends()
+    load_balancer: LoadBalancer = Depends(get_load_balancer)
 ):
     """
     Completions API 엔드포인트.

@@ -3,6 +3,7 @@ from app.routers import chat, generate, completions
 from app.services.load_balancer import LoadBalancer
 from app.services.metrics_collector import MetricsCollector
 from app.utils.config_loader import ConfigLoader
+from app.utils.dependencies import init_dependencies
 import asyncio
 
 # 전역적으로 초기화된 의존성
@@ -17,14 +18,13 @@ app = FastAPI()
 # 백그라운드 작업 추적
 background_tasks = []
 
-# 의존성 제공 함수
-def get_load_balancer():
-    return load_balancer
+# 의존성 초기화
+init_dependencies(load_balancer)
 
 # 라우터 등록
-app.include_router(chat.router, prefix="/v1", tags=["chat"], dependencies=[Depends(get_load_balancer)])
-app.include_router(generate.router, prefix="", tags=["generate"], dependencies=[Depends(get_load_balancer)])
-app.include_router(completions.router, prefix="/v1", tags=["completions"], dependencies=[Depends(get_load_balancer)])
+app.include_router(chat.router, prefix="/v1", tags=["chat"], dependencies=[])  # prefix 유지
+app.include_router(generate.router, prefix="", tags=["generate"], dependencies=[])
+app.include_router(completions.router, prefix="/v1", tags=["completions"], dependencies=[])
 
 @app.on_event("startup")
 async def startup_event():
