@@ -2,6 +2,9 @@
 
 LLMStream is a scalable and efficient REST API designed to handle load-balanced inference requests for large language models (LLMs) with OpenAI Compatible API. The system dynamically selects the optimal server based on real-time metrics or predefined strategies.
 
+## **Cautions**
+This is an experimental router for LLM. If you need a production-level router for LLM Service, please use [LiteLLM](https://github.com/BerriAI/litellm)
+
 ## **Features**
 
 - **Chat and Completions APIs** (OpenAI Compatible APIs only (ex. vllm serve)):
