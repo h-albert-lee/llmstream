@@ -1,6 +1,6 @@
 import random
 import json
-from typing import Dict
+from typing import Dict, Generator
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
@@ -21,7 +21,7 @@ class LoadBalancer:
 
     async def select_server(self, model_name: str = None, is_generate: bool = False) -> str:
         """
-        서버 선택 로직 (비동기 함수지만, 내부적으로 동기 호출은 없음)
+        서버 선택 로직.
         """
         if is_generate:
             return self.config_loader.get_default_generate_server()
@@ -45,34 +45,45 @@ class LoadBalancer:
         else:
             raise ValueError(f"Unsupported strategy: {strategy}")
 
-    async def forward_request(self, url: str, payload: Dict, headers: Dict) -> Dict:
+    async def forward_request(
+        self, url: str, payload: Dict, headers: Dict, stream: bool = False
+    ) -> Generator or Dict:
         """
-        비동기 메서드로 유지하되, 내부에서 requests (동기)를
-        ThreadPoolExecutor로 감싸서 실행
+        요청을 서버에 전달하고 응답을 반환.
+        스트리밍 요청을 지원.
         """
         # 동기로 실행할 실제 함수 정의
-        def _sync_request(url: str, payload: Dict, headers: Dict) -> Dict:
-            # Content-Length 제거
+        def _sync_request(url: str, payload: Dict, headers: Dict, stream: bool):
             headers.pop("Content-Length", None)
-            # Content-Type JSON
             headers["Content-Type"] = "application/json"
 
             # 동기 requests 호출
-            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            response = requests.post(url, json=payload, headers=headers, stream=stream, timeout=10)
             response.raise_for_status()
-            return response.json()
+
+            if stream:
+                return response.iter_lines(decode_unicode=True)
+            else:
+                return response.json()
 
         loop = asyncio.get_running_loop()
         try:
             # 스레드 풀에서 _sync_request 실행
             result = await loop.run_in_executor(
-                self.executor, 
-                _sync_request, 
-                url, 
-                payload, 
-                headers
+                self.executor,
+                _sync_request,
+                url,
+                payload,
+                headers,
+                stream,
             )
-            return result
+
+            if stream:
+                # 스트리밍 응답인 경우 제너레이터로 반환
+                return result
+            else:
+                # 일반 응답 반환
+                return result
         except requests.RequestException as e:
             raise RuntimeError(f"Request failed to {url}: {e}")
 
