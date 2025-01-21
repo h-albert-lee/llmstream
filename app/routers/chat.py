@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from app.models.request import ChatCompletionRequest
 from app.services.load_balancer import LoadBalancer
 from app.services.logger import Logger
+from app.utils.dependencies import get_load_balancer
 
 router = APIRouter()
 logger = Logger()
@@ -11,16 +12,17 @@ logger = Logger()
 async def chat_completions(
     request: Request,
     payload: ChatCompletionRequest,
-    load_balancer: LoadBalancer = Depends()
+    load_balancer: LoadBalancer = Depends(get_load_balancer)
 ):
     """
     Chat Completions API 엔드포인트.
     - 요청을 적절한 서버로 라우팅.
-    - 스트리밍 응답을 지원.
+    - 스트리밍 및 일반 요청 모두 지원.
     """
     model_name = payload.model
     stream = payload.stream
 
+    # 모델 이름이 제공되지 않은 경우 예외 처리
     if not model_name:
         raise HTTPException(status_code=400, detail="Model name must be specified.")
 
