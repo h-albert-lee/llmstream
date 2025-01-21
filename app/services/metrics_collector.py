@@ -14,7 +14,15 @@ class MetricsCollector:
         self.servers = servers
         self.metrics = {model: {} for model in servers.keys()}  # 모델별 메트릭 초기화
         self.update_interval = update_interval
+        self.streaming_request_counts = {model: 0 for model in servers.keys()}  # 스트리밍 카운터 추가
 
+    def increment_streaming_count(self, model_name: str):
+        if model_name in self.streaming_request_counts:
+            self.streaming_request_counts[model_name] += 1
+
+    def get_streaming_count(self, model_name: str) -> int:
+        return self.streaming_request_counts.get(model_name, 0)
+    
     async def fetch_metrics(self, server_url: str) -> Dict[str, float]:
         """
         주어진 서버의 메트릭을 가져옵니다.
