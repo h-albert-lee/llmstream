@@ -48,42 +48,33 @@ class LoadBalancer:
     async def forward_request(
         self, url: str, payload: Dict, headers: Dict, stream: bool = False
     ) -> Generator or Dict:
-        """
-        요청을 서버에 전달하고 응답을 반환.
-        스트리밍 요청을 지원.
-        """
-        # 동기로 실행할 실제 함수 정의
         def _sync_request(url: str, payload: Dict, headers: Dict, stream: bool):
             headers.pop("Content-Length", None)
             headers["Content-Type"] = "application/json"
 
-            # 동기 requests 호출
             response = requests.post(url, json=payload, headers=headers, stream=stream, timeout=10)
             response.raise_for_status()
 
             if stream:
-                return response.iter_lines(decode_unicode=True)
+                for chunk in response.iter_lines(decode_unicode=True):
+                    if chunk:
+                        yield chunk
             else:
                 return response.json()
 
         loop = asyncio.get_running_loop()
         try:
-            # 스레드 풀에서 _sync_request 실행
-            result = await loop.run_in_executor(
-                self.executor,
-                _sync_request,
-                url,
-                payload,
-                headers,
-                stream,
-            )
-
             if stream:
-                # 스트리밍 응답인 경우 제너레이터로 반환
-                return result
+                return _sync_request(url, payload, headers, stream)
             else:
-                # 일반 응답 반환
-                return result
+                return await loop.run_in_executor(
+                    self.executor,
+                    _sync_request,
+                    url,
+                    payload,
+                    headers,
+                    stream,
+                )
         except requests.RequestException as e:
             raise RuntimeError(f"Request failed to {url}: {e}")
 

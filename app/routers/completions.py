@@ -33,6 +33,7 @@ async def completions(
 
     # 헤더 및 페이로드 준비
     headers = dict(request.headers)
+    headers.pop("Content-Length", None)  # Content-Length 제거
     try:
         # 요청 전달
         response = await load_balancer.forward_request(
@@ -41,7 +42,15 @@ async def completions(
 
         if stream:
             # 스트리밍 응답 처리
-            return StreamingResponse(response, media_type="application/json")
+            async def stream_generator():
+                try:
+                    async for chunk in response:
+                        yield chunk
+                except Exception as e:
+                    logger.log_error(payload, f"Streaming error: {str(e)}")
+                    raise HTTPException(status_code=500, detail="Streaming error occurred.")
+
+            return StreamingResponse(stream_generator(), media_type="application/json")
         else:
             # 일반 응답 반환
             return response
